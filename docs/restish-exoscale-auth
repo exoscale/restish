@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+
+# A companion to restish's `external-tool` authentication
+# method for Exoscale's {public,partner}-api.
+#
+# Methods of configuration by order of precedence:
+#
+# - Through the `-a` and `-s` parameters
+# - Looking up the named profile in `-p`
+# - Through environment variables
+# - Looking up the default profile in ~/.cloudstack.ini
+#
+# Only cloudstack.ini is supported since it requires no external
+# dependencies which TOML does.
+
+
+from __future__ import unicode_literals
+import argparse
+import json
+import hashlib
+import hmac
+import os
+import sys
+import time
+import configparser
+from base64 import standard_b64encode
+from urllib.parse import parse_qs, urlparse
+
+
+def authenticate_request(request, api_key, api_secret):
+    if api_key is None or api_secret is None:
+        raise Exception('missing API credentials')
+    expiration_ts = int(time.time() + 10 * 60)
+    auth_header = 'EXO2-HMAC-SHA256 credential={}'.format(api_key)
+    msg_parts = []
+    # Request method/URL path
+    msg_parts.append('{method} {path}'.format(
+        method=request['method'], path=urlparse(request['uri']).path
+    ))
+    # Request body
+    msg_parts.append(request['body'])
+
+    # Request query string parameters
+    # Important: this is order-sensitive, we have to have to sort
+    # parameters alphabetically to ensure signed # values match the
+    # names listed in the 'signed-query-args=' signature pragma.
+    params = parse_qs(urlparse(request['uri']).query)
+
+    sig_params = sorted(params)
+    params_values = []
+    for p in sig_params:
+        if len(params[p]) != 1:
+            continue
+        params_values.append(params[p][0])
+    msg_parts.append(''.join(params_values))
+
+    if sig_params:
+        auth_header += ',signed-query-args={}'.format(';'.join(sig_params))
+
+    # Request headers -- none at the moment
+    # Note: the same order-sensitive caution for query string parameters
+    # applies to headers.
+    msg_parts.append('')
+
+    # Request expiration date (UNIX timestamp)
+    msg_parts.append(str(expiration_ts))
+    auth_header += ',expires=' + str(expiration_ts)
+    msg = '\n'.join(msg_parts)
+    signature = hmac.new(
+        api_secret.encode('utf-8'),
+        msg=msg.encode('utf-8'),
+        digestmod=hashlib.sha256
+    ).digest()
+
+    auth_header += ',signature=' + str(
+        standard_b64encode(bytes(signature)), 'utf-8'
+    )
+    return ({'uri': request['uri'],
+             'headers': {'Authorization': [auth_header]}})
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(
+        prog='RestishExoscaleAuthenticator',
+        description='A restish helper to authorize Exoscale requests')
+    parser.add_argument('-p', '--profile', help='profile to load')
+    parser.add_argument('-k', '--key', help='API key to use')
+    parser.add_argument('-s', '--secret', help='API secret to use')
+
+    args = parser.parse_args()
+    api_key = os.getenv("EXOSCALE_API_KEY")
+    api_secret = os.getenv("EXOSCALE_API_SECRET")
+    if args.key is not None and args.secret is not None:
+        api_key = args.key
+        api_secret = args.secret
+    elif args.key is not None or args.secret is not None:
+        print("both api key and secret must be provided", file=sys.stderr)
+        exit(1)
+    elif args.profile is not None:
+        try:
+            config = configparser.ConfigParser()
+            config.read(os.path.expanduser('~/.cloudstack.ini'))
+            api_key = config[args.profile]['key']
+            api_secret = config[args.profile]['secret']
+        except Exception as e:
+            print("could not load profile {}: {}".format(args.profile, str(e)),
+                  file=sys.stderr)
+            exit(1)
+    elif api_key is None and api_secret is None:
+        try:
+            config = configparser.ConfigParser()
+            config.read(os.path.expanduser('~/.cloudstack.ini'))
+            section = config.sections()[0]
+            api_key = config[section]['key']
+            api_secret = config[section]['secret']
+        except Exception as e:
+            print("could not load configuration: {}".format(str(e)),
+                  file=sys.stderr)
+            exit(1)
+    try:
+        input = json.load(sys.stdin, strict=False)
+        output = authenticate_request(input, api_key, api_secret)
+        print(json.dumps(output))
+    except Exception as e:
+        print("could not transform request: {}: {}".format(
+            type(e).__name__, str(e)),
+              file=sys.stderr)
+        exit(1)
