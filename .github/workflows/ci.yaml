@@ -10,14 +10,14 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.22.2"
       - run: go test -coverprofile=coverage.txt -covermode=atomic ./...
         if: matrix.os == 'ubuntu-latest'
       - run: go test
         if: matrix.os == 'windows-latest'
-      - uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         if: matrix.os == 'ubuntu-latest'
