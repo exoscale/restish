@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,7 +38,7 @@ func TestHandleCommandPluginMessageRejectsMalformedDone(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, "done", raw)
+	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, "done", raw)
 	if !done {
 		t.Fatal("expected malformed done message to stop processing")
 	}
@@ -64,7 +65,7 @@ func TestHandleCommandPluginMessageRejectsOversizedStdoutData(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, pluginwire.MsgTypeStdoutData, raw)
+	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, pluginwire.MsgTypeStdoutData, raw)
 	if done {
 		t.Fatal("stdout-data should not mark command plugin done")
 	}
@@ -94,7 +95,7 @@ func TestHandleCommandPluginMessageRejectsOversizedStderrData(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, pluginwire.MsgTypeStderrData, raw)
+	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, pluginwire.MsgTypeStderrData, raw)
 	if done {
 		t.Fatal("stderr-data should not mark command plugin done")
 	}
@@ -106,6 +107,52 @@ func TestHandleCommandPluginMessageRejectsOversizedStderrData(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("oversized stderr data was written: %d bytes", stderr.Len())
+	}
+}
+
+func TestHandleCommandPluginSelect(t *testing.T) {
+	var stderr, response bytes.Buffer
+	cli := &CLI{Stderr: &stderr}
+	cli.hooks.PassReader = strings.NewReader("\x1b[B\r")
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetErr(&stderr)
+	request := pluginwire.SelectMsg{
+		Type:      pluginwire.MsgTypeSelect,
+		RequestID: "select-1",
+		Message:   "Choose a pet",
+		Options: []pluginwire.SelectOption{
+			{Label: "Mochi", Value: "42"},
+			{Label: "Pixel", Value: "7"},
+		},
+	}
+	raw, err := cbor.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := &commandPluginWriter{w: &response}
+	var requestWG sync.WaitGroup
+	var interactionMu sync.Mutex
+	if done, err := cli.handleCommandPluginMessage(cmd, context.Background(), writer, &requestWG, &interactionMu, false, pluginwire.MsgTypeSelect, raw); err != nil || done {
+		t.Fatalf("handle select = done %v, err %v", done, err)
+	}
+	requestWG.Wait()
+	var reply pluginwire.SelectResponseMsg
+	if err := pluginwire.NewDecoder(&response).ReadMessage(&reply); err != nil {
+		t.Fatal(err)
+	}
+	if reply.RequestID != "select-1" || reply.Value != "7" || reply.Error != "" {
+		t.Fatalf("select response = %#v", reply)
+	}
+
+	response.Reset()
+	if done, err := cli.handleCommandPluginMessage(cmd, context.Background(), writer, &requestWG, &interactionMu, true, pluginwire.MsgTypeSelect, raw); err != nil || done {
+		t.Fatalf("handle passthrough select = done %v, err %v", done, err)
+	}
+	if err := pluginwire.NewDecoder(&response).ReadMessage(&reply); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(reply.Error, "passthrough_stdio") {
+		t.Fatalf("passthrough response = %#v", reply)
 	}
 }
 
