@@ -11,6 +11,7 @@ import (
 	base "github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	"github.com/pb33f/libopenapi/orderedmap"
+	"github.com/rest-sh/restish/v2/config"
 )
 
 // OperationXCLI holds x-cli-* extension values extracted from an operation.
@@ -30,6 +31,10 @@ type ParamXCLI struct {
 	Name string
 	// Description overrides the OpenAPI parameter description.
 	Description string
+	// Position is the one-based position in the generated required argument list.
+	Position *int
+	// PositionError describes a present position extension with an invalid value.
+	PositionError string
 	// Completion describes an opt-in API-backed shell completion provider.
 	Completion *ParamCompletion
 
@@ -194,7 +199,7 @@ func (s *APISpec) OperationSet(opts OperationOptions) (OperationSet, error) {
 	if err != nil {
 		return OperationSet{}, err
 	}
-	xcliExtensions, err := s.XCLIExtensionReport()
+	xcliExtensions, err := s.xCLIExtensionReport(opts.ExtensionAliases)
 	if err != nil {
 		return OperationSet{}, err
 	}
@@ -290,7 +295,7 @@ func (s *APISpec) buildOperations(opts OperationOptions) ([]Operation, []string,
 				}
 			}
 			fullPath := joinOperationPath(basePath, rawPath)
-			op := extractOperation(mo.Method, fullPath, pathParams, mo.Op, model.Model.Security, securitySchemes(model.Model.Components), openAPIJSONSchemaDialect(model.Model))
+			op := extractOperation(mo.Method, fullPath, pathParams, mo.Op, model.Model.Security, securitySchemes(model.Model.Components), openAPIJSONSchemaDialect(model.Model), opts.ExtensionAliases)
 			op.OperationServer = operationServer
 			if op.XCLI.Ignore {
 				continue
@@ -315,7 +320,7 @@ func emitOperationWarnings(warnf func(format string, args ...any), warnings []st
 }
 
 // extractOperation converts a single libopenapi operation to the neutral form.
-func extractOperation(method, path string, pathParams []*v3.Parameter, op *v3.Operation, docSecurity []*base.SecurityRequirement, schemes map[string]*v3.SecurityScheme, schemaDialect string) Operation {
+func extractOperation(method, path string, pathParams []*v3.Parameter, op *v3.Operation, docSecurity []*base.SecurityRequirement, schemes map[string]*v3.SecurityScheme, schemaDialect string, extensionAliases map[string]string) Operation {
 	effectiveSecurity := docSecurity
 	if op.Security != nil {
 		effectiveSecurity = op.Security
@@ -348,6 +353,7 @@ func extractOperation(method, path string, pathParams []*v3.Parameter, op *v3.Op
 	o.OptionalAuth, o.CredentialAlternatives = credentialAlternatives(effectiveSecurity, schemes)
 
 	merged := MergeParameters(pathParams, op.Parameters)
+	positionExtension := extensionName(extensionAliases, config.XCLIPositionExtension)
 	for _, p := range merged {
 		if p == nil {
 			continue
@@ -367,16 +373,21 @@ func extractOperation(method, path string, pathParams []*v3.Parameter, op *v3.Op
 		} else if schema := preferredParameterContentSchema(p); schema != nil {
 			schemaHelp, paramType, itemType, defaultValue, defaultValues, hasDefault, enum, objectProperties, jsonSchema, jsonSchemaDialect = parameterSchemaDetails(schema, schemaDialect)
 		}
+		position, positionErr := ParamExtInt(p, positionExtension)
 		completion, completionErr := ParamCompletionExt(p)
 		xcli := ParamXCLI{
 			Ignore:      ParamExtBool(p, "x-cli-ignore"),
 			Hidden:      ParamExtBool(p, "x-cli-hidden"),
 			Name:        ParamExtString(p, "x-cli-name"),
 			Description: ParamExtString(p, "x-cli-description"),
+			Position:    position,
 			Completion:  completion,
 		}
 		if completionErr != nil {
 			xcli.completionError = completionErr.Error()
+		}
+		if positionErr != nil {
+			xcli.PositionError = positionErr.Error()
 		}
 		o.Parameters = append(o.Parameters, Param{
 			Name:              p.Name,
@@ -516,6 +527,13 @@ func completionParamExists(operation Operation, location, name string) bool {
 
 func completionWarning(operation Operation, parameter Param, reason string) string {
 	return fmt.Sprintf("operation %q parameter %s.%s ignores x-cli-completion: %s", operation.ID, parameter.In, parameter.Name, reason)
+}
+
+func extensionName(aliases map[string]string, canonical string) string {
+	if alias := aliases[canonical]; alias != "" {
+		return alias
+	}
+	return canonical
 }
 
 func securitySchemes(components *v3.Components) map[string]*v3.SecurityScheme {

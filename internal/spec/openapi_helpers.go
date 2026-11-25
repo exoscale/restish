@@ -170,6 +170,22 @@ func ParamHasExtension(p *v3.Parameter, key string) bool {
 	return p != nil && p.Extensions != nil && !nilDecodableNode(p.Extensions.GetOrZero(key))
 }
 
+// ParamExtInt reads an integer OpenAPI extension from a parameter.
+func ParamExtInt(p *v3.Parameter, key string) (*int, error) {
+	if p == nil || p.Extensions == nil {
+		return nil, nil
+	}
+	node := p.Extensions.GetOrZero(key)
+	if nilDecodableNode(node) {
+		return nil, nil
+	}
+	var value int
+	if err := node.Decode(&value); err != nil {
+		return nil, fmt.Errorf("%s must be an integer", key)
+	}
+	return &value, nil
+}
+
 type decodableNode interface {
 	Decode(any) error
 }

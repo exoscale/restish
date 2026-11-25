@@ -151,6 +151,55 @@ func TestDynamicParameterCompletionAfterAPISync(t *testing.T) {
 	}
 }
 
+func TestDynamicCompletionWithAliasedArgumentPositions(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/accounts", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"items":[{"id":"acct-1","name":"Primary Account"}]}`)
+	})
+	mux.HandleFunc("/accounts/acct-1/projects", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"items":[{"id":"prod","name":"Production"}]}`)
+	})
+	mux.HandleFunc("/accounts/acct-1/servers", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("scope") != "public" || r.URL.Query().Get("project") != "prod" {
+			t.Errorf("request query = %s", r.URL.RawQuery)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"ok":true}`)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	env := setupEnvWithSpec(t, mux, func(baseURL string) string {
+		return strings.Replace(dynamicCompletionSpec(baseURL),
+			`"operationId": "listServers",
+      "parameters": [`,
+			`"operationId": "listServers",
+      "parameters": [
+        {"name":"scope","in":"query","required":true,"x-test-position":1,"schema":{"type":"string"}},`, 1)
+	})
+	env.writeAPIConfig(t, &config.APIConfig{
+		BaseURL:                 env.baseURL(t),
+		OpenAPIExtensionAliases: map[string]string{config.XCLIPositionExtension: "x-test-position"},
+	})
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"restish", "api", "sync", "tapi"}, "Synced"},
+		{[]string{"restish", "__complete", "tapi", "list-servers", "public", "ac"}, "acct-1\tPrimary Account"},
+		{[]string{"restish", "__complete", "tapi", "list-servers", "public", "acct-1", "--project", "pr"}, "prod\tProduction"},
+		{[]string{"restish", "tapi", "list-servers", "public", "acct-1", "--project", "prod"}, `"ok":true`},
+	} {
+		cli, out := env.newCaptureCLI()
+		if err := cli.Run(test.args); err != nil {
+			t.Fatalf("%v: %v", test.args, err)
+		}
+		if !strings.Contains(out.String(), test.want) {
+			t.Fatalf("%v: output = %q, want %q", test.args, out.String(), test.want)
+		}
+	}
+}
+
 // TestEnumFlagCompletion verifies that OpenAPI enum values are registered as
 // completion candidates for the corresponding flag.
 func TestEnumFlagCompletion(t *testing.T) {

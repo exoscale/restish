@@ -38,11 +38,8 @@ const (
 // Returns nil when the spec cannot be built into a v3 model.
 func (c *CLI) buildAPICommand(apiName string, apiCfg *config.APIConfig, s *spec.APISpec) *cobra.Command {
 	operationBase := effectiveOperationBase(apiCfg, "default")
-	set, err := s.OperationSet(spec.OperationOptions{
-		BaseURL:         effectiveProfileBaseURL(apiCfg, "default"),
-		OperationBase:   operationBase,
-		ServerVariables: effectiveServerVariables(apiCfg, "default"),
-	})
+	opts := c.openAPIOperationOptions(apiCfg, "default")
+	set, err := s.OperationSet(opts)
 	return c.buildAPICommandFromOperationResult(apiName, apiCfg, set, operationBase, err)
 }
 
@@ -336,6 +333,7 @@ type paramInfo struct {
 	enum             []string // allowed values from OpenAPI schema enum, if present
 	completion       *spec.ParamCompletion
 	objectProperties []spec.ParamObjectProperty
+	position         *int
 	parent           *paramInfo
 	objectKey        string
 }
@@ -370,6 +368,9 @@ func (c *CLI) buildOperationCommandWithProviders(apiName, examplePrefix string, 
 		if p.XCLI.Ignore {
 			continue
 		}
+		if p.XCLI.PositionError != "" {
+			return nil, fmt.Errorf("parameter %q: %s", p.Name, p.XCLI.PositionError)
+		}
 		flagName := toKebabCase(p.Name)
 		if p.XCLI.Name != "" {
 			flagName = p.XCLI.Name
@@ -402,6 +403,7 @@ func (c *CLI) buildOperationCommandWithProviders(apiName, examplePrefix string, 
 			enum:             p.Enum,
 			completion:       p.XCLI.Completion,
 			objectProperties: p.ObjectProperties,
+			position:         p.XCLI.Position,
 		}
 	}
 
@@ -429,13 +431,24 @@ func (c *CLI) buildOperationCommandWithProviders(apiName, examplePrefix string, 
 			continue
 		}
 		if generatedParamSatisfiedByAPIKeySecurity(pi, op.CredentialAlternatives) {
+			if pi.position != nil {
+				return nil, fmt.Errorf("parameter %q uses x-cli-position but is supplied by authentication", p.Name)
+			}
 			continue
 		}
 		if p.Required {
 			required = append(required, pi)
 			continue
 		}
+		if pi.position != nil {
+			return nil, fmt.Errorf("parameter %q uses x-cli-position but is not required", p.Name)
+		}
 		optional = append(optional, pi)
+	}
+	var err error
+	required, err = positionGeneratedRequiredParams(required)
+	if err != nil {
+		return nil, err
 	}
 	optional = expandGeneratedObjectChildParams(optional)
 	for _, warning := range disambiguateGeneratedFlagNames(optional) {
@@ -941,6 +954,34 @@ func generatedOperationArgs(required []*paramInfo, hasBody bool) func(*cobra.Com
 		}
 		return nil
 	}
+}
+
+func positionGeneratedRequiredParams(params []*paramInfo) ([]*paramInfo, error) {
+	positioned := make([]*paramInfo, len(params))
+	remaining := make([]*paramInfo, 0, len(params))
+	for _, param := range params {
+		if param.position == nil {
+			remaining = append(remaining, param)
+			continue
+		}
+		position := *param.position
+		if position < 1 || position > len(params) {
+			return nil, fmt.Errorf("parameter %q has x-cli-position %d, expected a value from 1 to %d", param.name, position, len(params))
+		}
+		if previous := positioned[position-1]; previous != nil {
+			return nil, fmt.Errorf("parameters %q and %q both use x-cli-position %d", previous.name, param.name, position)
+		}
+		positioned[position-1] = param
+	}
+
+	next := 0
+	for i := range positioned {
+		if positioned[i] == nil {
+			positioned[i] = remaining[next]
+			next++
+		}
+	}
+	return positioned, nil
 }
 
 func shieldGeneratedNegativeNumberArgs(root *cobra.Command, args []string) []string {
