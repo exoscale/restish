@@ -203,6 +203,12 @@ func (c *CLI) runPagination(
 			c.warnf("pagination page %d returned HTTP %d; stopping", page, status)
 			break
 		}
+		if streamingContentType(httpResp.Header.Get("Content-Type")) != "" {
+			if err := responseMiddlewareStreamError(globalFlagsFromContext(ctx)); err != nil {
+				_ = httpResp.Body.Close()
+				return fmt.Errorf("paginate page %d: %w", page, err)
+			}
+		}
 
 		resp, err := c.normalizeHTTPResponse(httpResp, maxBodyBytes(cmd))
 		if err != nil {

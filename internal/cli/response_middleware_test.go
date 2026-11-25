@@ -58,6 +58,25 @@ func TestResponseMiddlewareFlagActivation(t *testing.T) {
 	}
 }
 
+func TestResponseMiddlewareFlagTransformsScalarResponses(t *testing.T) {
+	for _, contentType := range []string{"text/plain", "application/json"} {
+		t.Run(contentType, func(t *testing.T) {
+			c, out, _ := newFlaggedHookCLI(t)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", contentType)
+				fmt.Fprint(w, `"private-value"`)
+			}))
+			t.Cleanup(srv.Close)
+			if err := c.Run([]string{"restish", srv.URL, "--rsh-test-response", "-o", "auto"}); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(out.String(), "private-value") || !strings.Contains(out.String(), "masked") {
+				t.Fatalf("scalar response escaped middleware: %q", out)
+			}
+		})
+	}
+}
+
 func TestResponseMiddlewareFlagRejectsUnsupportedCommandsAndModes(t *testing.T) {
 	c, out, _ := newFlaggedHookCLI(t)
 	var requests atomic.Int64
@@ -103,6 +122,32 @@ func TestResponseMiddlewareFlagRejectsStreams(t *testing.T) {
 			err := c.Run([]string{"restish", srv.URL, "--rsh-test-response", "--rsh-max-items", "1"})
 			if err == nil || !strings.Contains(err.Error(), "does not support streaming") {
 				t.Fatalf("error = %v", err)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("stream data escaped middleware: %q", out)
+			}
+		})
+	}
+}
+
+func TestResponseMiddlewareFlagRejectsPaginatedStreams(t *testing.T) {
+	for _, contentType := range []string{"application/x-ndjson", "text/event-stream"} {
+		t.Run(contentType, func(t *testing.T) {
+			c, out, _ := newFlaggedHookCLI(t)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if r.URL.Query().Get("page") == "2" {
+					w.Header().Set("Content-Type", contentType)
+					fmt.Fprintln(w, `{"id":"private-value"}`)
+					return
+				}
+				w.Header().Set("Link", `</items?page=2>; rel="next"`)
+				fmt.Fprint(w, `[{"id":"private-value"}]`)
+			}))
+			t.Cleanup(srv.Close)
+			err := c.Run([]string{"restish", srv.URL + "/items", "--rsh-test-response"})
+			if err == nil || !strings.Contains(err.Error(), "does not support streaming") {
+				t.Fatalf("error = %v, output = %q", err, out)
 			}
 			if out.Len() != 0 {
 				t.Fatalf("stream data escaped middleware: %q", out)

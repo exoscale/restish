@@ -217,6 +217,9 @@ func (c *CLI) runResponseMiddlewarePlugins(ctx context.Context, req *http.Reques
 		if out.Response != nil {
 			if out.Response.Body != nil {
 				resp.Body = out.Response.Body
+				if p.Manifest.ResponseMiddlewareFlag != nil {
+					resp.Raw = nil
+				}
 			}
 			if out.Response.Headers != nil {
 				if resp.Headers == nil {

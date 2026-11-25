@@ -302,6 +302,9 @@ func runResponseMiddleware(raw []byte) {
 				object["id"] = "masked"
 			}
 		}
+		if text, ok := msg.Response.Body.(string); ok {
+			msg.Response.Body = strings.ReplaceAll(text, "private-value", "masked")
+		}
 		_ = plugin.WriteMessage(os.Stdout, plugin.ResponseMiddlewareOutput{Response: &plugin.HookResponseUpdate{
 			Body: msg.Response.Body, Headers: map[string]any{"X-Identifier": "masked"},
 		}})
