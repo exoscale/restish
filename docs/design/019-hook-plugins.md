@@ -148,6 +148,27 @@ path (`restish URL > file` with no filter, collection, metadata shortcut, or
 output format) or explicit `-r` / `--rsh-raw`, because those paths preserve the
 original response body bytes.
 
+Plugins may opt into per-request activation with
+`required_features: ["response_middleware.flag"]` and
+`response_middleware_flag: {"name": "anonymize", "usage": "Anonymize identifiers in the decoded response"}`.
+The host registers a boolean `--rsh-anonymize` flag, off by default. Without
+that flag, this plugin's response hook does not run. Other declared hooks keep
+their existing behaviour.
+
+Flag names are lowercase letters, digits, and single dashes, starting with a
+letter. They must not collide with built-in or other plugin flags. A flagged
+response hook requires the feature declaration so older hosts reject it instead
+of silently running it unconditionally.
+
+An enabled flag selects interpreted output even when stdout is redirected.
+Explicit raw output and verbose output are rejected. Every bounded pagination
+response passes through the enabled hooks before rendering. Streaming responses
+are rejected until a per-record hook contract exists.
+
+These hooks transform response bodies and headers, not request data, derived
+link metadata, cache storage, shell completion, or plugin diagnostics. They are
+not a general secret-scrubbing boundary.
+
 The response update's `headers` object is a partial update: keys returned by the
 plugin replace those individual response header values, while omitted inbound
 headers remain unchanged.

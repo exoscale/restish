@@ -127,24 +127,39 @@ func (w *commandPluginWaiter) Wait(grace time.Duration) error {
 }
 
 func (c *CLI) runCommandPlugin(cmd *cobra.Command, pluginPath string, decl pluginwire.CommandDecl, args []string) error {
-	if globalFlagsFromContext(requestContext(cmd)).Raw {
+	gf := globalFlagsFromContext(requestContext(cmd))
+	if gf.Raw {
 		return fmt.Errorf("%s does not support -r/--rsh-raw", cmd.CommandPath())
+	}
+	if len(gf.ResponseMiddlewareFlags) > 0 {
+		return fmt.Errorf("%s does not support --%s", cmd.CommandPath(), strings.Join(gf.ResponseMiddlewareFlags, ", --"))
 	}
 	for _, arg := range args {
 		if arg == "--" {
 			break
 		}
-		if arg == "--rsh-raw" {
-			return fmt.Errorf("%s does not support -r/--rsh-raw", cmd.CommandPath())
+		if !strings.HasPrefix(arg, "--") {
+			continue
 		}
-		if value, ok := strings.CutPrefix(arg, "--rsh-raw="); ok {
-			enabled, err := strconv.ParseBool(value)
+		name, value, hasValue := strings.Cut(strings.TrimPrefix(arg, "--"), "=")
+		flag := cmd.Root().PersistentFlags().Lookup(name)
+		if name != "rsh-raw" && (flag == nil || len(flag.Annotations[responseMiddlewareFlagAnnotation]) == 0) {
+			continue
+		}
+		enabled := true
+		if hasValue {
+			var err error
+			enabled, err = strconv.ParseBool(value)
 			if err != nil {
-				return fmt.Errorf("invalid --rsh-raw value %q: %w", value, err)
+				return fmt.Errorf("invalid --%s value %q: %w", name, value, err)
 			}
-			if enabled {
-				return fmt.Errorf("%s does not support -r/--rsh-raw", cmd.CommandPath())
+		}
+		if enabled {
+			label := "--" + name
+			if name == "rsh-raw" {
+				label = "-r/--rsh-raw"
 			}
+			return fmt.Errorf("%s does not support %s", cmd.CommandPath(), label)
 		}
 	}
 	syncErr := &commandPluginWriter{w: cmd.ErrOrStderr()}

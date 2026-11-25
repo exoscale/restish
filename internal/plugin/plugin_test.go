@@ -297,6 +297,10 @@ func TestLoadManifest_CompatibilityMatrix(t *testing.T) {
 			name: "formatter host fallback feature",
 			json: `{"name":"supported","restish_api_version":2,"hooks":["formatter"],"formatter_names":["progress"],"required_features":["formatter.host_fallback"]}`,
 		},
+		{
+			name: "response middleware flag feature",
+			json: `{"name":"anonymize","restish_api_version":2,"hooks":["response-middleware"],"required_features":["response_middleware.flag"],"response_middleware_flag":{"name":"anonymize","usage":"Anonymize identifiers"}}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

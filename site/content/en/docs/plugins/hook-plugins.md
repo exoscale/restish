@@ -51,6 +51,13 @@ Response middleware runs when Restish renders, filters, collects, or explicitly
 prints an interpreted response. It is skipped for plain raw downloads such as
 `restish URL > file`, where Restish preserves the original response body bytes.
 
+For per-request activation, declare `response_middleware_flag` and require
+`response_middleware.flag`. Restish exposes a boolean `--rsh-<name>` switch and
+only invokes that response hook when the switch is enabled. This also selects
+decoded output when stdout is redirected. See
+[Plugin Manifest](/docs/reference/plugin-manifest/#opt-in-response-middleware)
+for the declaration and supported response modes.
+
 Auth hooks run after built-in auth has prepared the request. For generated
 operations that require more than one credential, Restish applies all selected
 credentials and invokes auth hooks once with the final request. In that

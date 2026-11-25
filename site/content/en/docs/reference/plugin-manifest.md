@@ -53,6 +53,12 @@ CBOR: `required_features`; JSON: `required_features`; type: `[]string`; required
 
 RequiredFeatures lists additive protocol features that must be supported by the host before this plugin may run. Unknown optional manifest fields are ignored, but unknown required features fail manifest loading.
 
+**`ResponseMiddlewareFlag`**
+
+CBOR: `response_middleware_flag`; JSON: `response_middleware_flag`; type: `*ResponseMiddlewareFlag`; required: no
+
+ResponseMiddlewareFlag makes the response hook opt-in through its rsh- flag. It requires FeatureResponseMiddlewareFlag.
+
 **`FormatterNames`**
 
 CBOR: `formatter_names`; JSON: `formatter_names`; type: `[]string`; required: no
@@ -88,6 +94,23 @@ NeedsAuthSecrets, when true, tells Restish to forward secret auth params (passwo
 CBOR: `hook_timeouts`; JSON: `hook_timeouts`; type: `map[string]time.Duration`; required: no
 
 HookTimeouts overrides the per-hook subprocess deadline. Keys are hook names (e.g. "auth", "request-middleware"). The default is 30 s for all hooks except "auth", which defaults to 5 minutes.
+
+
+### `ResponseMiddlewareFlag`
+
+ResponseMiddlewareFlag declares a boolean response-hook switch, off by default.
+
+**`Name`**
+
+CBOR: `name`; JSON: `name`; type: `string`; required: yes
+
+Name is the lowercase flag name without the rsh- prefix.
+
+**`Usage`**
+
+CBOR: `usage`; JSON: `usage`; type: `string`; required: yes
+
+Usage describes the response transformation in command help.
 
 
 ### `CommandDecl`
@@ -153,6 +176,7 @@ CBOR: `commands`; JSON: `commands`; type: `[]CommandDecl`; required: yes
 | `restish_api_version` | Minimum host/plugin protocol version required by this plugin. |
 | `hooks` | Hook families such as `auth`, `request-middleware`, `response-middleware`, `loader`, `formatter`, `command`, or `tls-signer`. |
 | `required_features` | Additive protocol features the host must support before the plugin can run. Unknown optional fields are ignored; unknown required features fail loading. |
+| `response_middleware_flag` | Optional `{name, usage}` declaration for a boolean `--rsh-<name>` switch. Requires the `response-middleware` hook and `response_middleware.flag` feature. |
 | `formatter_names` | Required when `hooks` includes `formatter`; lists output format names. |
 | `interactive_formatter_names` | Optional formatter names that keep control of terminal input after the response ends. |
 | `loader_content_types` | Required when `hooks` includes `loader`; lists source MIME types. |
@@ -172,6 +196,39 @@ Supported `required_features` values are:
 | `request.final_body` | Auth and request-middleware hooks may receive final request body bytes when Restish has them. |
 | `command.select` | Command plugins may request a host-owned single-choice picker. |
 | `formatter.host_fallback` | Formatter stdout uses framed messages and may delegate individual bodies to the host's `auto` formatter. |
+| `response_middleware.flag` | A response hook can require an explicit per-request boolean switch. |
+
+## Opt-In Response Middleware
+
+```json
+{
+  "name": "anonymize",
+  "restish_api_version": 2,
+  "hooks": ["response-middleware"],
+  "required_features": ["response_middleware.flag"],
+  "response_middleware_flag": {
+    "name": "anonymize",
+    "usage": "Anonymize identifiers in the decoded response"
+  }
+}
+```
+
+This registers `--rsh-anonymize`, off by default. The flag name must start with
+a lowercase letter and contain only lowercase letters, digits, and single
+dashes. `usage` must be non-empty. Built-in and duplicate plugin flag names are
+rejected before command execution.
+
+Only the response hook is gated. Any other hooks declared by the same plugin
+keep their existing behaviour. Plugins without this declaration keep their
+existing automatic response-hook behaviour.
+
+The enabled hook receives bounded responses and every bounded pagination page.
+A followed response is passed through the enabled hooks too. Repeated follows
+and follows from subsequent pagination pages fail rather than bypassing the hook.
+SSE and NDJSON are not supported with these switches.
+
+See [Install and Use Plugins](/docs/plugins/install-and-use/#opt-in-response-middleware)
+for operator examples and output limitations.
 
 ## Command Discovery
 

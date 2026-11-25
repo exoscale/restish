@@ -89,6 +89,9 @@ func validateRawOutputFlags(cmd *cobra.Command, gf GlobalFlags) error {
 	if gf.MaxItems != 0 {
 		conflicts = append(conflicts, "--rsh-max-items")
 	}
+	for _, name := range gf.ResponseMiddlewareFlags {
+		conflicts = append(conflicts, "--"+name)
+	}
 	if len(conflicts) > 0 {
 		return fmt.Errorf("--rsh-raw cannot be combined with %s", strings.Join(conflicts, ", "))
 	}
@@ -117,7 +120,7 @@ func (c *CLI) autoPrintSpec(gf GlobalFlags, tty bool, kind printResponseKind) pr
 }
 
 func untransformedRedirectOutput(gf GlobalFlags) bool {
-	return gf.OutputFormat == "" &&
+	return len(gf.ResponseMiddlewareFlags) == 0 && gf.OutputFormat == "" &&
 		!gf.OutputFormatSet &&
 		!gf.Collect &&
 		gf.MaxItems == 0 &&

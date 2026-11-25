@@ -331,6 +331,10 @@ func (c *CLI) runHTTPWithOptions(cmd *cobra.Command, method string, args []strin
 			_ = httpResp.Body.Close()
 			return c.statusError(cmd, httpResp.StatusCode)
 		}
+		if err := responseMiddlewareStreamError(gf); err != nil {
+			_ = httpResp.Body.Close()
+			return err
+		}
 		spec, specErr := c.resolvePrintSpec(gf, c.stdoutIsTerminal(), printStreamResponse)
 		if specErr != nil {
 			_ = httpResp.Body.Close()
@@ -445,9 +449,9 @@ func (c *CLI) runHTTPWithOptions(cmd *cobra.Command, method string, args []strin
 	}
 
 	// Response-middleware plugins: can modify, drop, or follow.
-	// Skipped in follow mode to prevent infinite loops.
-	if !followMode && httpResp.Request != nil && !printSpec.rawBodyOnly() {
-		drop, followReq, mwErr := c.runResponseMiddlewarePlugins(requestContext(cmd), httpResp.Request, resp)
+	// Followed responses only rerun opted-in hooks and cannot follow again.
+	if (!followMode || len(gf.ResponseMiddlewareFlags) > 0) && httpResp.Request != nil && !printSpec.rawBodyOnly() {
+		drop, followReq, mwErr := c.runResponseMiddlewarePlugins(requestContext(cmd), httpResp.Request, resp, followMode)
 		if mwErr != nil {
 			return mwErr
 		}
@@ -455,6 +459,9 @@ func (c *CLI) runHTTPWithOptions(cmd *cobra.Command, method string, args []strin
 			return nil
 		}
 		if followReq != nil {
+			if followMode {
+				return fmt.Errorf("response middleware cannot follow another request from a followed response")
+			}
 			crossHost := followCrossesFirstPartyHost(firstPartyHost, followReq.URI)
 			if crossHost {
 				c.warnf("response-middleware follow to different host %q — stripping credentials", followReq.URI)
@@ -801,8 +808,10 @@ func (c *CLI) canPrintWithoutResponseBody(gf GlobalFlags, spec printSpec) bool {
 	if spec.includesResponseBody() && !filterCanRenderWithoutResponseBody(gf) {
 		return false
 	}
-	if len(c.pluginsByHook["response-middleware"]) > 0 {
-		return false
+	for _, p := range c.pluginsByHook["response-middleware"] {
+		if responseMiddlewareEnabled(gf, p.Manifest) {
+			return false
+		}
 	}
 	return true
 }

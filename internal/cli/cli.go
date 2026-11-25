@@ -792,6 +792,9 @@ func (c *CLI) Run(args []string) error {
 }
 
 func (c *CLI) executeRoot(ctx context.Context, root *cobra.Command, args []string) error {
+	if err := c.addResponseMiddlewareFlags(root); err != nil {
+		return err
+	}
 	if len(args) > 0 {
 		if err := validateGeneratedFlagValueTokens(root, args); err != nil {
 			return err
@@ -1329,6 +1332,10 @@ func flagConsumesNextArg(token string) bool {
 	}
 	name := strings.TrimLeft(token, "-")
 	if strings.HasPrefix(token, "--") {
+		// Plugin response switches are boolean and are unknown before discovery.
+		if strings.HasPrefix(name, "rsh-") {
+			return valueLikeLongFlags[name]
+		}
 		_, noValue := boolLikeLongFlags[name]
 		return !noValue
 	}
@@ -1341,11 +1348,20 @@ func flagConsumesNextArg(token string) bool {
 }
 
 var boolLikeLongFlags = map[string]bool{
-	"help": true, "version": true,
-	"rsh-raw": true, "rsh-silent": true, "rsh-headers": true,
-	"rsh-verbose": true, "rsh-insecure": true, "rsh-ignore-status-code": true,
-	"rsh-no-cache": true, "rsh-no-browser": true, "rsh-no-paginate": true,
-	"rsh-collect": true,
+	"help": true, "help-all": true, "version": true,
+}
+
+var valueLikeLongFlags = map[string]bool{
+	"rsh-header": true, "rsh-query": true, "rsh-prompt-secret": true,
+	"rsh-server": true, "rsh-output-format": true, "rsh-print": true,
+	"rsh-columns": true, "rsh-sort-by": true, "rsh-content-type": true,
+	"rsh-filter": true, "rsh-filter-lang": true,
+	"rsh-client-cert": true, "rsh-client-key": true, "rsh-tls-signer": true,
+	"rsh-tls-signer-param": true, "rsh-ca-cert": true, "rsh-tls-min-version": true,
+	"rsh-timeout": true, "rsh-profile": true, "rsh-auth": true,
+	"rsh-retry": true, "rsh-retry-max-wait": true,
+	"rsh-max-pages": true, "rsh-max-items": true, "rsh-max-body-size": true,
+	"rsh-config": true,
 }
 
 var boolLikeShortFlags = map[rune]bool{

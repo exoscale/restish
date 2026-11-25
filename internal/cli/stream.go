@@ -73,6 +73,10 @@ func (c *CLI) handleMislabeledJSONLines(cmd *cobra.Command, resp *http.Response,
 		return false, nil
 	}
 	resp.Body = &readCloser{Reader: io.MultiReader(bytes.NewReader(lineCopy), reader), Closer: original}
+	if err := responseMiddlewareStreamError(gf); err != nil {
+		_ = resp.Body.Close()
+		return true, err
+	}
 	if err := c.statusError(cmd, resp.StatusCode); err != nil {
 		_ = resp.Body.Close()
 		return true, err

@@ -22,7 +22,8 @@ These builds are not official Restish releases.
 The downstream additions cover explicit raw output, richer security warnings,
 API-backed completion and argument ordering, plugin selection and progress,
 formatter configuration and interactive sessions, host formatter fallback, and
-hidden request-body prompts.
+hidden request-body prompts, and opt-in response middleware such as
+`--rsh-anonymize` when a compatible plugin is installed.
 
 ## Try It
 

@@ -54,7 +54,7 @@ func (c *CLI) newRootCmd() *cobra.Command {
 			// Lazy generated-command redispatch already parsed the global flags.
 			if gf, ok := cmd.Context().Value(globalFlagsContextKey{}).(GlobalFlags); ok {
 				c.silentMode = gf.Silent
-				return nil
+				return c.validateResponseMiddlewareCommand(cmd, gf)
 			}
 			gf, err := parseGlobalFlags(cmd)
 			if err != nil {
@@ -62,7 +62,7 @@ func (c *CLI) newRootCmd() *cobra.Command {
 			}
 			c.silentMode = gf.Silent
 			cmd.SetContext(withGlobalFlags(cmd.Context(), gf))
-			return nil
+			return c.validateResponseMiddlewareCommand(cmd, gf)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

@@ -41,6 +41,9 @@ const (
 	// FeatureFormatterHostFallback means formatter stdout uses FormatterOutput
 	// messages and may delegate individual values to the host's auto formatter.
 	FeatureFormatterHostFallback = "formatter.host_fallback"
+	// FeatureResponseMiddlewareFlag means a response hook can require an
+	// explicit per-request boolean flag.
+	FeatureResponseMiddlewareFlag = "response_middleware.flag"
 )
 
 // Manifest is the metadata a plugin reports when called with
@@ -63,6 +66,9 @@ type Manifest struct {
 	// by the host before this plugin may run. Unknown optional manifest fields
 	// are ignored, but unknown required features fail manifest loading.
 	RequiredFeatures []string `cbor:"required_features,omitempty" json:"required_features,omitempty"`
+	// ResponseMiddlewareFlag makes the response hook opt-in through its rsh- flag.
+	// It requires FeatureResponseMiddlewareFlag.
+	ResponseMiddlewareFlag *ResponseMiddlewareFlag `cbor:"response_middleware_flag,omitempty" json:"response_middleware_flag,omitempty"`
 	// FormatterNames lists the output format names this plugin registers when
 	// the "formatter" hook is declared.
 	FormatterNames []string `cbor:"formatter_names,omitempty" json:"formatter_names,omitempty"`
@@ -85,6 +91,14 @@ type Manifest struct {
 	// names (e.g. "auth", "request-middleware"). The default is 30 s for all
 	// hooks except "auth", which defaults to 5 minutes.
 	HookTimeouts map[string]time.Duration `cbor:"hook_timeouts,omitempty" json:"hook_timeouts,omitempty"`
+}
+
+// ResponseMiddlewareFlag declares a boolean response-hook switch, off by default.
+type ResponseMiddlewareFlag struct {
+	// Name is the lowercase flag name without the rsh- prefix.
+	Name string `cbor:"name" json:"name"`
+	// Usage describes the response transformation in command help.
+	Usage string `cbor:"usage" json:"usage"`
 }
 
 // CommandDecl describes one command that a command-plugin exposes.

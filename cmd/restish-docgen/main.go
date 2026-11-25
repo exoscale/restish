@@ -197,6 +197,7 @@ func buildCommandPlugins(root, pluginDir, goCache string) (map[string]string, er
 func renderRegions(root string, cmdRoot *cobra.Command, pluginPaths map[string]string) (map[string]string, error) {
 	manifestSchema, err := renderSchemaRegion(root, []string{
 		"Manifest",
+		"ResponseMiddlewareFlag",
 		"CommandDecl",
 		"CommandDiscoveryResponse",
 	})

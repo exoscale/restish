@@ -105,6 +105,32 @@ restish bulk --help
 restish mcp serve example
 ```
 
+## Opt-In Response Middleware
+
+Some response middleware plugins expose a per-request switch instead of changing
+every response. For a compatible `anonymize` plugin that declares this capability:
+
+```bash
+restish plugin list
+restish api.rest.sh/example --rsh-anonymize
+restish api.rest.sh/example --rsh-anonymize=false
+```
+
+The switch is off by default and appears in `restish get --help-all`. When
+enabled, it selects decoded output even if stdout is redirected. Each bounded
+pagination page passes through the plugin before filtering or rendering.
+
+Explicit raw output (`-r`), verbose output (`-v`), command plugins, `edit`, SSE,
+and NDJSON are rejected with an enabled response switch. If the plugin cannot
+load, the switch is unavailable and the request fails rather than silently
+returning unmodified data.
+
+The plugin transforms decoded response bodies and headers. It does not scrub
+request data, derived link metadata, cache storage, or plugin diagnostics.
+Check which fields the plugin transforms before sharing its output.
+
+The declaration is described in [Plugin Manifest](/docs/reference/plugin-manifest/#opt-in-response-middleware).
+
 ## Debug A Plugin
 
 ```bash

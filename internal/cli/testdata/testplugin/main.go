@@ -205,6 +205,10 @@ func runHookPlugin() {
 	if os.Getenv("RSH_HOOK_NEEDS_AUTH_SECRETS") == "1" {
 		manifest.NeedsAuthSecrets = true
 	}
+	if name := os.Getenv("RSH_HOOK_RESPONSE_FLAG"); name != "" {
+		manifest.RequiredFeatures = append(manifest.RequiredFeatures, plugin.FeatureResponseMiddlewareFlag)
+		manifest.ResponseMiddlewareFlag = &plugin.ResponseMiddlewareFlag{Name: name, Usage: "Anonymize test responses"}
+	}
 	if plugin.HandleStartupFlags(os.Stdout, manifest, nil) {
 		return
 	}
@@ -269,6 +273,38 @@ func runResponseMiddleware(raw []byte) {
 
 	behavior := os.Getenv("RSH_HOOK_RM_BEHAVIOR")
 	switch {
+	case strings.HasPrefix(behavior, "flagged"):
+		if strings.Contains(msg.Request.URI, "page=2") {
+			switch behavior {
+			case "flagged-fail-page":
+				fmt.Fprintln(os.Stderr, "test response middleware failure")
+				os.Exit(1)
+			case "flagged-drop-page":
+				_ = plugin.WriteMessage(os.Stdout, plugin.ResponseMiddlewareOutput{Drop: true})
+				return
+			case "flagged-follow-page":
+				_ = plugin.WriteMessage(os.Stdout, plugin.ResponseMiddlewareOutput{Follow: &plugin.FollowRequest{URI: msg.Request.URI}})
+				return
+			}
+		}
+		if behavior == "flagged-follow" && strings.HasSuffix(msg.Request.URI, "/start") {
+			_ = plugin.WriteMessage(os.Stdout, plugin.ResponseMiddlewareOutput{
+				Follow: &plugin.FollowRequest{URI: strings.TrimSuffix(msg.Request.URI, "/start") + "/final"},
+			})
+			return
+		}
+		items := []any{msg.Response.Body}
+		if array, ok := msg.Response.Body.([]any); ok {
+			items = array
+		}
+		for _, item := range items {
+			if object, ok := item.(map[string]any); ok {
+				object["id"] = "masked"
+			}
+		}
+		_ = plugin.WriteMessage(os.Stdout, plugin.ResponseMiddlewareOutput{Response: &plugin.HookResponseUpdate{
+			Body: msg.Response.Body, Headers: map[string]any{"X-Identifier": "masked"},
+		}})
 	case behavior == "drop":
 		_ = plugin.WriteMessage(os.Stdout, plugin.ResponseMiddlewareOutput{Drop: true})
 	case strings.HasPrefix(behavior, "follow-body:"):

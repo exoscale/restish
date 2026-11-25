@@ -208,6 +208,18 @@ func (c *CLI) runPagination(
 		if err != nil {
 			return fmt.Errorf("paginate page %d normalize: %w", page, err)
 		}
+		if len(globalFlagsFromContext(ctx).ResponseMiddlewareFlags) > 0 {
+			drop, follow, err := c.runResponseMiddlewarePlugins(ctx, httpResp.Request, resp, true)
+			if err != nil {
+				return fmt.Errorf("paginate page %d: %w", page, err)
+			}
+			if drop {
+				return nil
+			}
+			if follow != nil {
+				return fmt.Errorf("paginate page %d: response middleware cannot follow another request", page)
+			}
+		}
 		if v := globalFlagsFromContext(requestContext(cmd)).Verbose; v >= 1 {
 			c.logVerboseResponseBody(resp)
 		}

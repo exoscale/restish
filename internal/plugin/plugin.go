@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strings"
@@ -51,9 +52,11 @@ var supportedRequiredFeatures = map[string]bool{
 	pluginwire.FeatureRequestFinalBody:         true,
 	pluginwire.FeatureCommandSelect:            true,
 	pluginwire.FeatureFormatterHostFallback:    true,
+	pluginwire.FeatureResponseMiddlewareFlag:   true,
 }
 
 var renameManifestCacheFile = os.Rename
+var responseMiddlewareFlagNamePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 
 // Manifest is an alias for the canonical plugin.Manifest defined in the public
 // plugin package. Using the same type eliminates the dual-maintenance risk that
@@ -287,6 +290,24 @@ func validateManifest(m Manifest) error {
 			return fmt.Errorf("manifest requires unsupported feature %q", feature)
 		}
 	}
+	requiresFlag := slices.Contains(m.RequiredFeatures, pluginwire.FeatureResponseMiddlewareFlag)
+	if requiresFlag && m.ResponseMiddlewareFlag == nil {
+		return fmt.Errorf("manifest requires %s but omits response_middleware_flag", pluginwire.FeatureResponseMiddlewareFlag)
+	}
+	if flag := m.ResponseMiddlewareFlag; flag != nil {
+		if !declaredHooks["response-middleware"] {
+			return fmt.Errorf("manifest sets response_middleware_flag without declaring response-middleware hook")
+		}
+		if !requiresFlag {
+			return fmt.Errorf("manifest response_middleware_flag requires %s in required_features", pluginwire.FeatureResponseMiddlewareFlag)
+		}
+		if !responseMiddlewareFlagNamePattern.MatchString(flag.Name) {
+			return fmt.Errorf("manifest response_middleware_flag name %q must use lowercase letters, digits, and single dashes, starting with a letter", flag.Name)
+		}
+		if strings.TrimSpace(flag.Usage) == "" {
+			return fmt.Errorf("manifest response_middleware_flag omits usage")
+		}
+	}
 	if declaredHooks["formatter"] && len(m.FormatterNames) == 0 && len(m.InteractiveFormatterNames) == 0 {
 		return fmt.Errorf("manifest declares formatter hook but omits formatter_names and interactive_formatter_names")
 	}
@@ -333,7 +354,7 @@ type manifestCacheEntry struct {
 	Manifest Manifest `cbor:"manifest"`
 }
 
-const manifestCacheSchemaVersion = 1
+const manifestCacheSchemaVersion = 2
 
 // manifestCache maps plugin executable path to its cached entry.
 type manifestCache map[string]manifestCacheEntry

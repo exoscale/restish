@@ -2,6 +2,7 @@ package plugin_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"strconv"
@@ -13,6 +14,37 @@ import (
 
 	"github.com/rest-sh/restish/v2/plugin"
 )
+
+func TestResponseMiddlewareFlagManifestWire(t *testing.T) {
+	manifest := plugin.Manifest{
+		Name: "anonymize", RestishAPIVersion: 2,
+		Hooks: []string{"response-middleware"}, RequiredFeatures: []string{plugin.FeatureResponseMiddlewareFlag},
+		ResponseMiddlewareFlag: &plugin.ResponseMiddlewareFlag{Name: "anonymize", Usage: "Anonymize identifiers"},
+	}
+	var wire bytes.Buffer
+	if err := plugin.WriteManifest(&wire, manifest); err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := plugin.ReadMessage(&wire, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	flag, ok := decoded["response_middleware_flag"].(map[string]any)
+	if !ok || flag["name"] != "anonymize" || flag["usage"] != "Anonymize identifiers" {
+		t.Fatalf("CBOR flag = %#v", decoded["response_middleware_flag"])
+	}
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var roundTrip plugin.Manifest
+	if err := json.Unmarshal(data, &roundTrip); err != nil {
+		t.Fatal(err)
+	}
+	if roundTrip.ResponseMiddlewareFlag == nil || *roundTrip.ResponseMiddlewareFlag != *manifest.ResponseMiddlewareFlag {
+		t.Fatalf("JSON flag = %#v", roundTrip.ResponseMiddlewareFlag)
+	}
+}
 
 // TestWriteReadRoundTrip verifies that WriteMessage → ReadMessage recovers
 // the original value for common Go types.

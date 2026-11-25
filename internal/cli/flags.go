@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/rest-sh/restish/v2/internal/request"
 )
@@ -58,6 +59,9 @@ type GlobalFlags struct {
 	MaxPages         int
 	MaxItems         int
 	MaxBodySize      int
+
+	// ResponseMiddlewareFlags lists enabled plugin response switches.
+	ResponseMiddlewareFlags []string
 }
 
 type globalFlagsContextKey struct{}
@@ -106,6 +110,13 @@ func parseGlobalFlags(cmd *cobra.Command) (GlobalFlags, error) {
 	gf.RetryUnsafe, _ = cmd.Flags().GetBool("rsh-retry-unsafe")
 	gf.NoPaginate, _ = cmd.Flags().GetBool("rsh-no-paginate")
 	gf.Collect, _ = cmd.Flags().GetBool("rsh-collect")
+	cmd.Flags().VisitAll(func(flag *pflag.Flag) {
+		if len(flag.Annotations[responseMiddlewareFlagAnnotation]) > 0 {
+			if enabled, _ := cmd.Flags().GetBool(flag.Name); enabled {
+				gf.ResponseMiddlewareFlags = append(gf.ResponseMiddlewareFlags, flag.Name)
+			}
+		}
+	})
 
 	// Count flag
 	gf.Verbose, _ = cmd.Flags().GetCount("rsh-verbose")

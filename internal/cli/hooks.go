@@ -167,8 +167,13 @@ type HookFollowRequest struct {
 // runResponseMiddlewarePlugins invokes all "response-middleware" hook plugins.
 // Returns (drop, follow, err). drop=true means suppress all output. follow is
 // non-nil when the plugin wants Restish to issue a new request.
-func (c *CLI) runResponseMiddlewarePlugins(ctx context.Context, req *http.Request, resp *output.Response) (drop bool, follow *HookFollowRequest, err error) {
+// optInOnly preserves legacy hook behaviour on later pages and followed responses.
+func (c *CLI) runResponseMiddlewarePlugins(ctx context.Context, req *http.Request, resp *output.Response, optInOnly bool) (drop bool, follow *HookFollowRequest, err error) {
 	for _, p := range c.pluginsByHook["response-middleware"] {
+		if (optInOnly && p.Manifest.ResponseMiddlewareFlag == nil) ||
+			!responseMiddlewareEnabled(globalFlagsFromContext(ctx), p.Manifest) {
+			continue
+		}
 		if trace := requestTraceFromContext(req.Context()); trace != nil {
 			trace.AddInfo("Plugin", pluginInvocationTrace("response", p))
 			trace.Step("response-plugin")
