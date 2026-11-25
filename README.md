@@ -1,8 +1,7 @@
-# Restish
+# Restish (downstream)
 
-[![CI](https://github.com/rest-sh/restish/actions/workflows/ci.yml/badge.svg)](https://github.com/rest-sh/restish/actions/workflows/ci.yml)
-[![Docs Site](https://github.com/rest-sh/restish/actions/workflows/docs-site.yml/badge.svg)](https://github.com/rest-sh/restish/actions/workflows/docs-site.yml)
-[![Release](https://img.shields.io/github/v/release/rest-sh/restish)](https://github.com/rest-sh/restish/releases)
+[![CI](https://github.com/natalie-o-perret/restish/actions/workflows/ci.yml/badge.svg?branch=downstream)](https://github.com/natalie-o-perret/restish/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/natalie-o-perret/restish?include_prereleases)](https://github.com/natalie-o-perret/restish/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/rest-sh/restish/v2.svg)](https://pkg.go.dev/github.com/rest-sh/restish/v2)
 [![License](https://img.shields.io/github/license/rest-sh/restish)](LICENSE.md)
 
@@ -14,6 +13,16 @@ plugins.
 Restish v2 is the active release line. Users who need the legacy v1 line can
 install `rest-sh/tap/restish@1`; see the
 [v1 upgrade guide](https://rest.sh/docs/getting-started/upgrade-from-v1/).
+
+This is Natalie Perret's downstream fork of
+[rest-sh/restish](https://github.com/rest-sh/restish). The `downstream` branch
+combines pending upstream contributions while keeping their PR branches separate.
+These builds are not official Restish releases.
+
+The downstream additions cover explicit raw output, richer security warnings,
+API-backed completion and argument ordering, plugin selection and progress,
+formatter configuration and interactive sessions, host formatter fallback, and
+hidden request-body prompts.
 
 ## Try It
 
@@ -39,7 +48,7 @@ Origami under blacklight   webp    /images/webp
 Andy Warhol mural in Miami gif     /images/gif
 ```
 
-## Sponsors
+## Upstream Sponsors
 
 A big thank you to our sponsor!
 
@@ -57,30 +66,24 @@ A big thank you to our sponsor!
 
 ## Install
 
-Use Homebrew for the easiest managed install on macOS:
+Build this fork from source with Go 1.25.3 or newer:
 
 ```bash
-brew install restish
-restish --version
+git clone --branch downstream https://github.com/natalie-o-perret/restish.git restish-downstream
+cd restish-downstream
+go build -ldflags "-X github.com/rest-sh/restish/v2/internal/cli.Version=downstream-$(git rev-parse --short HEAD)" -o restish ./cmd/restish
+./restish --version
+./restish --help
 ```
 
-Or use mise:
+Homebrew, mise's `restish` shorthand, and `go install` from `rest-sh/restish`
+install upstream, not this fork. The Go module path stays unchanged for plugin
+and embedder compatibility.
 
-```bash
-mise use -g restish@latest
-restish --version
-```
-
-Install the latest tagged v2 release from source with Go:
-
-```bash
-go install github.com/rest-sh/restish/v2/cmd/restish@latest
-restish --help
-```
-
-Check `restish --version` after installation. See the
-[install guide](https://rest.sh/docs/getting-started/install/) for shell setup,
-upgrades, and platform notes.
+Downstream release archives belong to
+[this fork's releases](https://github.com/natalie-o-perret/restish/releases).
+Use a distinct prerelease tag such as `v2.3.0-natalie.1` when publishing.
+This fork does not update the upstream Homebrew tap.
 
 ## Why Restish?
 

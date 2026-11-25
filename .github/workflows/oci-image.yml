@@ -11,11 +11,12 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/rest-sh/restish
+  IMAGE_NAME: ghcr.io/natalie-o-perret/restish
 
 jobs:
   build:
     name: Build and publish image
+    if: github.repository == 'natalie-o-perret/restish'
     runs-on: ubuntu-latest
 
     steps:

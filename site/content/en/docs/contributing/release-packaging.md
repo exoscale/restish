@@ -9,6 +9,13 @@ Use this page when preparing a Restish v2 release. It keeps the release
 artifacts, package-manager metadata, plugin binaries, and docs in the same
 checklist.
 
+For the `natalie-o-perret/restish` downstream fork, GitHub release archives and
+OCI images publish under `natalie-o-perret`, not `rest-sh`. Use a distinct
+prerelease tag, such as `v2.3.0-natalie.1`, and run the checks below before tagging.
+The Homebrew, mise, and Go install sections describe upstream distribution.
+This fork does not publish Homebrew formulae. Build it from the `downstream`
+branch as shown in the repository README.
+
 The public install guide assumes the v2 release artifacts are available:
 Homebrew first for macOS users, then source, mise, GitHub archives, and OCI
 image options. Before publishing docs, verify each public artifact below rather
