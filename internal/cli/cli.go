@@ -83,6 +83,8 @@ type testHooks struct {
 	StdoutIsTerminal func(io.Writer) bool
 	// StderrIsTerminal overrides terminal detection in tests.
 	StderrIsTerminal func(io.Writer) bool
+	// StdinIsTerminal overrides terminal detection in tests.
+	StdinIsTerminal func(io.Reader) bool
 }
 
 func (c *CLI) stdoutIsTerminal() bool {
@@ -97,6 +99,20 @@ func (c *CLI) stderrIsTerminal() bool {
 		return c.hooks.StderrIsTerminal(c.Stderr)
 	}
 	return output.IsTerminal(c.Stderr)
+}
+
+func (c *CLI) stdinIsTerminal() bool {
+	if c.hooks.StdinIsTerminal != nil {
+		return c.hooks.StdinIsTerminal(c.Stdin)
+	}
+	return output.IsTerminalReader(c.Stdin)
+}
+
+func (c *CLI) interactiveTerminalsAvailable(stdoutTTY bool) bool {
+	if c.hooks.StdinIsTerminal != nil || c.hooks.StdoutIsTerminal != nil {
+		return stdoutTTY && c.stdinIsTerminal()
+	}
+	return stdoutTTY && output.SupportsInteractiveTerminal(c.Stdin) && output.SupportsInteractiveTerminal(c.Stdout)
 }
 
 // CLI holds all state for a Restish instance. Using a struct instead of
@@ -672,6 +688,16 @@ func (c *CLI) Run(args []string) error {
 					PluginPath: p.Path,
 					FormatName: name,
 					Context:    ctx,
+					Input:      c.Stdin,
+				}
+			}
+			for _, name := range p.Manifest.InteractiveFormatterNames {
+				c.formatters[name] = &output.PluginFormatter{
+					PluginPath:  p.Path,
+					FormatName:  name,
+					Context:     ctx,
+					Input:       c.Stdin,
+					Interactive: true,
 				}
 			}
 		}
@@ -748,9 +774,8 @@ func (c *CLI) Run(args []string) error {
 	}
 
 	err = c.executeRoot(ctx, root, args)
-	// When the context was cancelled by a signal (SIGINT/SIGTERM), return
-	// ExitCodeError{130} so main exits with 130 without printing any extra message.
-	if isSignalCancellation(err, ctx) {
+	// Signals and Ctrl-C in raw terminal mode exit without extra output.
+	if isSignalCancellation(err, ctx) || errors.Is(err, internalplugin.ErrTerminalInterrupt) {
 		return &ExitCodeError{Code: 130}
 	}
 	if c.shouldSuppressFinalError(err) {
