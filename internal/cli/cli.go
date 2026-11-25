@@ -27,6 +27,7 @@ import (
 	"github.com/rest-sh/restish/v2/internal/output"
 	internalplugin "github.com/rest-sh/restish/v2/internal/plugin"
 	"github.com/rest-sh/restish/v2/internal/spec"
+	pluginwire "github.com/rest-sh/restish/v2/plugin"
 	"github.com/spf13/cobra"
 )
 
@@ -690,6 +691,8 @@ func (c *CLI) Run(args []string) error {
 					PluginConfig: cfg.Plugins[p.Manifest.Name],
 					Context:      ctx,
 					Input:        c.Stdin,
+					Timeout:      internalplugin.HookTimeout(p.Manifest, "formatter"),
+					HostFallback: manifestRequiresFeature(p.Manifest, pluginwire.FeatureFormatterHostFallback),
 				}
 			}
 			for _, name := range p.Manifest.InteractiveFormatterNames {
@@ -700,6 +703,8 @@ func (c *CLI) Run(args []string) error {
 					Context:      ctx,
 					Input:        c.Stdin,
 					Interactive:  true,
+					Timeout:      internalplugin.HookTimeout(p.Manifest, "formatter"),
+					HostFallback: manifestRequiresFeature(p.Manifest, pluginwire.FeatureFormatterHostFallback),
 				}
 			}
 		}

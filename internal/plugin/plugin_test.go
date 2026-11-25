@@ -293,6 +293,10 @@ func TestLoadManifest_CompatibilityMatrix(t *testing.T) {
 			name: "select required feature",
 			json: `{"name":"select","restish_api_version":2,"hooks":["command"],"required_features":["command.select"]}`,
 		},
+		{
+			name: "formatter host fallback feature",
+			json: `{"name":"supported","restish_api_version":2,"hooks":["formatter"],"formatter_names":["progress"],"required_features":["formatter.host_fallback"]}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -471,6 +475,11 @@ func TestLoadManifest_ValidatesHooksAndHookSpecificFields(t *testing.T) {
 				InteractiveFormatterNames: []string{"pretty"},
 			},
 			wantErr: `duplicate formatter name "pretty"`,
+		},
+		{
+			name:    "formatter fallback requires hook",
+			m:       Manifest{Name: "bad", RestishAPIVersion: CurrentPluginAPIVersion, Hooks: []string{"auth"}, RequiredFeatures: []string{pluginwire.FeatureFormatterHostFallback}},
+			wantErr: "formatter.host_fallback without declaring formatter hook",
 		},
 		{
 			name:    "loader hook requires content types",

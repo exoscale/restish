@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -49,6 +50,7 @@ var supportedRequiredFeatures = map[string]bool{
 	pluginwire.FeatureLoaderSourceMetadata:     true,
 	pluginwire.FeatureRequestFinalBody:         true,
 	pluginwire.FeatureCommandSelect:            true,
+	pluginwire.FeatureFormatterHostFallback:    true,
 }
 
 var renameManifestCacheFile = os.Rename
@@ -306,6 +308,9 @@ func validateManifest(m Manifest) error {
 			return fmt.Errorf("manifest declares duplicate formatter name %q", name)
 		}
 		formatterNames[name] = true
+	}
+	if slices.Contains(m.RequiredFeatures, pluginwire.FeatureFormatterHostFallback) && !declaredHooks["formatter"] {
+		return fmt.Errorf("manifest requires %s without declaring formatter hook", pluginwire.FeatureFormatterHostFallback)
 	}
 	if declaredHooks["loader"] && len(m.LoaderContentTypes) == 0 {
 		return fmt.Errorf("manifest declares loader hook but omits loader_content_types")

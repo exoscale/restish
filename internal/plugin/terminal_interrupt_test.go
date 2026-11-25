@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"testing"
 )
@@ -20,7 +21,10 @@ func TestFormatterTerminalCtrlCInterruptsHost(t *testing.T) {
 	}
 	var messages bytes.Buffer
 	stream := &FormatterStream{path: "test", stdin: nopWriteCloser{Writer: &messages}}
-	if err := stream.forwardTerminalInput(input, make(chan struct{})); err == nil {
-		t.Fatal("Ctrl-C was forwarded to the formatter instead of interrupting the host")
+	if err := stream.forwardTerminalInput(input, make(chan struct{})); !errors.Is(err, ErrTerminalInterrupt) {
+		t.Fatalf("Ctrl-C error = %v, want ErrTerminalInterrupt", err)
+	}
+	if messages.Len() != 0 {
+		t.Fatal("Ctrl-C was forwarded to the formatter")
 	}
 }

@@ -38,6 +38,9 @@ const (
 	// FeatureCommandSelect means command plugins may request an interactive
 	// single-choice picker from the host.
 	FeatureCommandSelect = "command.select"
+	// FeatureFormatterHostFallback means formatter stdout uses FormatterOutput
+	// messages and may delegate individual values to the host's auto formatter.
+	FeatureFormatterHostFallback = "formatter.host_fallback"
 )
 
 // Manifest is the metadata a plugin reports when called with
