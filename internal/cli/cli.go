@@ -685,19 +685,21 @@ func (c *CLI) Run(args []string) error {
 		if pluginDeclaresHook(p.Manifest, "formatter") {
 			for _, name := range p.Manifest.FormatterNames {
 				c.formatters[name] = &output.PluginFormatter{
-					PluginPath: p.Path,
-					FormatName: name,
-					Context:    ctx,
-					Input:      c.Stdin,
+					PluginPath:   p.Path,
+					FormatName:   name,
+					PluginConfig: cfg.Plugins[p.Manifest.Name],
+					Context:      ctx,
+					Input:        c.Stdin,
 				}
 			}
 			for _, name := range p.Manifest.InteractiveFormatterNames {
 				c.formatters[name] = &output.PluginFormatter{
-					PluginPath:  p.Path,
-					FormatName:  name,
-					Context:     ctx,
-					Input:       c.Stdin,
-					Interactive: true,
+					PluginPath:   p.Path,
+					FormatName:   name,
+					PluginConfig: cfg.Plugins[p.Manifest.Name],
+					Context:      ctx,
+					Input:        c.Stdin,
+					Interactive:  true,
 				}
 			}
 		}
