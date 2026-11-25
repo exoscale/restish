@@ -23,6 +23,7 @@ type preparedRequest struct {
 	body            io.Reader
 	bodyRaw         []byte
 	bodyContentType string
+	bodySecrets     []string
 	actualRequest   *http.Request
 	authEnabled     bool
 	closer          io.Closer
@@ -348,6 +349,9 @@ func isRawBinaryContentType(contentType string) bool {
 }
 
 func (c *CLI) sendPreparedRequest(ctx context.Context, method string, prepared *preparedRequest) (*http.Response, error) {
+	if len(prepared.bodySecrets) > 0 {
+		ctx = context.WithValue(ctx, bodySecretsContextKey{}, prepared.bodySecrets)
+	}
 	bodyReader := func() io.Reader {
 		if len(prepared.bodyRaw) == 0 {
 			return nil
@@ -365,6 +369,9 @@ func (c *CLI) sendPreparedRequest(ctx context.Context, method string, prepared *
 	retryOpts.Transport = prepared.opts.Transport
 	onUnauthorized := retryOpts.OnUnauthorized
 	retryOpts.OnRequest = func(req *http.Request) error {
+		if len(prepared.bodySecrets) > 0 {
+			request.MarkCredentialBody(req)
+		}
 		if err := onUnauthorized(req); err != nil {
 			return err
 		}
