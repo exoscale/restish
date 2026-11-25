@@ -388,7 +388,11 @@ func (s *pluginFormatterOutputSession) WriteValue(value any) error {
 		return fmt.Errorf("formatter plugin %s: %w", s.formatName, err)
 	}
 	if fallback {
-		return s.fallback.WriteValue(value)
+		err := s.fallback.WriteValue(value)
+		if err != nil {
+			s.fail(err)
+		}
+		return err
 	}
 	return nil
 }
@@ -465,11 +469,12 @@ func (f *PluginFormatter) formatWithHostFallback(w io.Writer, resp *Response, co
 	if err != nil {
 		return err
 	}
-	var formatErr error
 	if fallback {
-		formatErr = (&AutoFormatter{}).Format(session.w, resp, autoFallbackColor(w, resp, color))
+		if err := (&AutoFormatter{}).Format(session.w, resp, autoFallbackColor(w, resp, color)); err != nil {
+			return session.closeProcess(err)
+		}
 	}
-	return errors.Join(formatErr, session.Close())
+	return session.Close()
 }
 
 func (f *PluginFormatter) formatValueWithHostFallback(w io.Writer, value any, color bool) error {
@@ -484,7 +489,7 @@ func (f *PluginFormatter) formatValueWithHostFallback(w io.Writer, value any, co
 		return err
 	}
 	if fallback {
-		return errors.Join(fmt.Errorf("formatter plugin %s: start cannot request fallback without a body", f.FormatName), session.Close())
+		return session.closeProcess(fmt.Errorf("formatter plugin %s: start cannot request fallback without a body", f.FormatName))
 	}
 	fallback, exchangeErr := session.exchange(pluginwire.FormatterRequest{
 		Type:   "formatter",
@@ -494,11 +499,15 @@ func (f *PluginFormatter) formatValueWithHostFallback(w io.Writer, value any, co
 			Body: value,
 		},
 	})
-	var formatErr error
-	if exchangeErr == nil && fallback {
-		formatErr = (&AutoFormatter{}).Format(session.w, &Response{Body: value}, color)
+	if exchangeErr != nil {
+		return session.closeProcess(exchangeErr)
 	}
-	return errors.Join(exchangeErr, formatErr, session.Close())
+	if fallback {
+		if err := (&AutoFormatter{}).Format(session.w, &Response{Body: value}, color); err != nil {
+			return session.closeProcess(err)
+		}
+	}
+	return session.Close()
 }
 
 func (f *PluginFormatter) startValueStreamWithHostFallback(w io.Writer, base *Response, color bool) (ValueStream, error) {
@@ -518,11 +527,11 @@ func (f *PluginFormatter) startValueStreamWithHostFallback(w io.Writer, base *Re
 		return nil, err
 	}
 	if fallback {
-		return nil, errors.Join(fmt.Errorf("formatter plugin %s: start cannot request fallback without a body", f.FormatName), session.closeProcess())
+		return nil, session.closeProcess(fmt.Errorf("formatter plugin %s: start cannot request fallback without a body", f.FormatName))
 	}
 	session.fallback, err = (&AutoFormatter{}).StartValueStream(session.w, base, color)
 	if err != nil {
-		return nil, errors.Join(err, session.closeProcess())
+		return nil, session.closeProcess(err)
 	}
 	return session, nil
 }

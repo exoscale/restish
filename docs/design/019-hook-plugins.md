@@ -258,6 +258,8 @@ Ctrl-C in raw mode cancels the formatter and returns exit code 130 after
 restoring the terminal. Interactive names can also use framed host fallback.
 They receive the same start-event plugin configuration and enter terminal
 interaction after completing the `end` request.
+Rendering or protocol failures close the session without entering terminal
+interaction.
 
 This model is intentionally narrow:
 

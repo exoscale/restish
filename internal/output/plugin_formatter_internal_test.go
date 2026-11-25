@@ -273,6 +273,62 @@ func TestPluginFormatterHostFallbackPreservesSessionOptions(t *testing.T) {
 	}
 }
 
+type formatterErrorWriter struct{}
+
+func (formatterErrorWriter) Write([]byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
+
+func TestInteractiveHostFallbackClosesAfterRenderError(t *testing.T) {
+	for _, mode := range []string{"response", "value", "stream", "invalid-value-start", "invalid-stream-start"} {
+		t.Run(mode, func(t *testing.T) {
+			invalidStart := strings.HasPrefix(mode, "invalid-")
+			fake := &fakeFormatterOutputStream{
+				outputs: make(chan pluginwire.FormatterOutput),
+				done:    make(chan struct{}),
+				respond: func(req pluginwire.FormatterRequest) []pluginwire.FormatterOutput {
+					return []pluginwire.FormatterOutput{{
+						Type: pluginwire.MsgTypeFormatterOutput, RequestID: req.RequestID, Complete: true,
+						Fallback: req.Response.Body != nil || (invalidStart && req.Event == "start"),
+					}}
+				},
+			}
+			oldStart := startPluginFormatterOutputStream
+			startPluginFormatterOutputStream = func(context.Context, string) (formatterOutputStream, error) {
+				return fake, nil
+			}
+			t.Cleanup(func() { startPluginFormatterOutputStream = oldStart })
+			formatter := &PluginFormatter{FormatName: "live", HostFallback: true, Interactive: true}
+			var writer io.Writer = formatterErrorWriter{}
+			if invalidStart {
+				writer = io.Discard
+			}
+			var err error
+			switch mode {
+			case "response":
+				err = formatter.Format(writer, &Response{Body: "body"}, false)
+			case "value", "invalid-value-start":
+				err = formatter.FormatValue(writer, "body", false)
+			case "stream", "invalid-stream-start":
+				var stream ValueStream
+				stream, err = formatter.StartValueStream(writer, &Response{}, false)
+				if err == nil {
+					err = errors.Join(stream.WriteValue("body"), stream.Close())
+				}
+			}
+			if err == nil {
+				t.Fatal("expected the rendering or protocol error")
+			}
+			if !invalidStart && !errors.Is(err, io.ErrClosedPipe) {
+				t.Fatalf("error = %v, want io.ErrClosedPipe", err)
+			}
+			if fake.interacted || !fake.closed {
+				t.Fatalf("interacted=%t closed=%t after error", fake.interacted, fake.closed)
+			}
+		})
+	}
+}
+
 func TestPluginFormatterOutputTimeoutClosesSession(t *testing.T) {
 	fake := &fakeFormatterOutputStream{
 		outputs: make(chan pluginwire.FormatterOutput),
