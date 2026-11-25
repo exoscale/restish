@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -275,7 +276,7 @@ func TestCommandPluginWaiterReturnsSameResult(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start: %v", err)
 	}
-	waiter := newCommandPluginWaiter(cmd)
+	waiter := newCommandPluginWaiter(cmd, nil)
 	first := waiter.Wait(time.Second)
 	second := waiter.Wait(time.Second)
 	if first == nil || second == nil {
@@ -283,6 +284,62 @@ func TestCommandPluginWaiterReturnsSameResult(t *testing.T) {
 	}
 	if first.Error() != second.Error() {
 		t.Fatalf("wait results differ: first=%v second=%v", first, second)
+	}
+}
+
+func TestCommandPluginWaiterPreservesFinalOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script tests not supported on Windows")
+	}
+	stdout, writer := io.Pipe()
+	defer stdout.Close()
+	defer writer.Close()
+	cmd := exec.Command("sh", "-c", "printf final-message")
+	cmd.Stdout = writer
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waiter := newCommandPluginWaiter(cmd, writer)
+	read := make(chan error, 1)
+	go func() {
+		data, err := io.ReadAll(stdout)
+		if err == nil && string(data) != "final-message" {
+			err = fmt.Errorf("stdout = %q, want final-message", data)
+		}
+		read <- err
+	}()
+	select {
+	case err := <-read:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("final output or EOF was lost")
+	}
+	if err := waiter.Wait(time.Second); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCommandPluginWaiterUsesCancellationOnTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script tests not supported on Windows")
+	}
+	cmd := exec.CommandContext(context.Background(), "sh", "-c", "exec sleep 30")
+	canceled := false
+	cmd.Cancel = func() error {
+		canceled = true
+		return cmd.Process.Kill()
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	waiter := newCommandPluginWaiter(cmd, nil)
+	if err := waiter.Wait(time.Millisecond); err == nil {
+		t.Fatal("expected the timed-out process to be killed")
+	}
+	if !canceled {
+		t.Fatal("process-tree cancellation was bypassed")
 	}
 }
 

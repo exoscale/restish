@@ -83,10 +83,14 @@ type commandPluginWaiter struct {
 	waited bool
 }
 
-func newCommandPluginWaiter(cmd *exec.Cmd) *commandPluginWaiter {
+func newCommandPluginWaiter(cmd *exec.Cmd, stdout *io.PipeWriter) *commandPluginWaiter {
 	w := &commandPluginWaiter{cmd: cmd, done: make(chan error, 1)}
 	go func() {
-		w.done <- cmd.Wait()
+		err := cmd.Wait()
+		if stdout != nil {
+			_ = stdout.Close()
+		}
+		w.done <- err
 	}()
 	return w
 }
@@ -107,7 +111,9 @@ func (w *commandPluginWaiter) Wait(grace time.Duration) error {
 	select {
 	case err = <-w.done:
 	case <-timer.C:
-		if w.cmd.Process != nil {
+		if w.cmd.Cancel != nil {
+			_ = w.cmd.Cancel()
+		} else if w.cmd.Process != nil {
 			_ = w.cmd.Process.Kill()
 		}
 		err = <-w.done
@@ -137,17 +143,17 @@ func (c *CLI) runCommandPlugin(cmd *cobra.Command, pluginPath string, decl plugi
 	if err != nil {
 		return fmt.Errorf("command plugin: stdin pipe: %w", err)
 	}
-	stdoutPipe, err := proc.StdoutPipe()
-	if err != nil {
-		_ = stdinPipe.Close()
-		return fmt.Errorf("command plugin: stdout pipe: %w", err)
-	}
+	// StdoutPipe would let Wait close unread protocol messages on a fast exit.
+	stdoutPipe, stdoutWriter := io.Pipe()
+	defer stdoutPipe.Close()
+	defer stdoutWriter.Close()
+	proc.Stdout = stdoutWriter
 	if err := proc.Start(); err != nil {
 		_ = stdinPipe.Close()
 		_ = stdoutPipe.Close()
 		return fmt.Errorf("command plugin: start: %w", err)
 	}
-	waiter := newCommandPluginWaiter(proc)
+	waiter := newCommandPluginWaiter(proc, stdoutWriter)
 	cancelWatchDone := make(chan struct{})
 	go func() {
 		select {
@@ -224,6 +230,7 @@ func (c *CLI) runCommandPlugin(cmd *cobra.Command, pluginPath string, decl plugi
 
 	close(cancelWatchDone)
 	close(stopCh)
+	_ = stdoutPipe.Close()
 	cancelRequests()
 	stderrWriter.Flush()
 	if loopErr != nil {

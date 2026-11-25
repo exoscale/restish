@@ -81,6 +81,11 @@ All command-plugin paths should share one wait result for the subprocess so
 startup cleanup, cancellation, and normal shutdown cannot call `Wait` twice and
 turn the real exit status into "wait was already called".
 
+Process waiting must not close unread protocol messages when a plugin exits
+quickly. The host owns the protocol pipe and closes its writer only after the
+subprocess output has drained. Cancellation and shutdown close the reader and
+kill the configured process tree when needed.
+
 ### Messages From Plugin To Restish
 
 The current implementation handles these message types:
