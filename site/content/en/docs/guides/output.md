@@ -137,6 +137,12 @@ path; they run when Restish renders, filters, collects, or prints an interpreted
 response. Utility workflows and command plugins reject `--rsh-raw` when they
 cannot expose original HTTP response body bytes.
 
+When stderr is a terminal and a streaming formatter named `progress` is
+installed, non-verbose bounded raw downloads report transferred bytes on
+stderr. Known totals use the final response's `Content-Length`; chunked or
+unknown-length responses report bytes without a percentage. Redirected stderr,
+verbose requests, and installations without the formatter remain silent.
+
 Control exactly what stdout contains with `--rsh-print`:
 
 ```bash

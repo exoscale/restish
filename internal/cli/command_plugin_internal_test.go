@@ -38,7 +38,7 @@ func TestHandleCommandPluginMessageRejectsMalformedDone(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, "done", raw)
+	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, nil, "done", raw)
 	if !done {
 		t.Fatal("expected malformed done message to stop processing")
 	}
@@ -65,7 +65,7 @@ func TestHandleCommandPluginMessageRejectsOversizedStdoutData(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, pluginwire.MsgTypeStdoutData, raw)
+	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, nil, pluginwire.MsgTypeStdoutData, raw)
 	if done {
 		t.Fatal("stdout-data should not mark command plugin done")
 	}
@@ -95,7 +95,7 @@ func TestHandleCommandPluginMessageRejectsOversizedStderrData(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, pluginwire.MsgTypeStderrData, raw)
+	done, gotErr := cli.handleCommandPluginMessage(cmd, context.Background(), nil, nil, nil, false, nil, pluginwire.MsgTypeStderrData, raw)
 	if done {
 		t.Fatal("stderr-data should not mark command plugin done")
 	}
@@ -132,7 +132,7 @@ func TestHandleCommandPluginSelect(t *testing.T) {
 	writer := &commandPluginWriter{w: &response}
 	var requestWG sync.WaitGroup
 	var interactionMu sync.Mutex
-	if done, err := cli.handleCommandPluginMessage(cmd, context.Background(), writer, &requestWG, &interactionMu, false, pluginwire.MsgTypeSelect, raw); err != nil || done {
+	if done, err := cli.handleCommandPluginMessage(cmd, context.Background(), writer, &requestWG, &interactionMu, false, nil, pluginwire.MsgTypeSelect, raw); err != nil || done {
 		t.Fatalf("handle select = done %v, err %v", done, err)
 	}
 	requestWG.Wait()
@@ -145,7 +145,7 @@ func TestHandleCommandPluginSelect(t *testing.T) {
 	}
 
 	response.Reset()
-	if done, err := cli.handleCommandPluginMessage(cmd, context.Background(), writer, &requestWG, &interactionMu, true, pluginwire.MsgTypeSelect, raw); err != nil || done {
+	if done, err := cli.handleCommandPluginMessage(cmd, context.Background(), writer, &requestWG, &interactionMu, true, nil, pluginwire.MsgTypeSelect, raw); err != nil || done {
 		t.Fatalf("handle passthrough select = done %v, err %v", done, err)
 	}
 	if err := pluginwire.NewDecoder(&response).ReadMessage(&reply); err != nil {

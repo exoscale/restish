@@ -687,7 +687,7 @@ CBOR: `text`; type: `string`; required: yes
 
 ### `ProgressMsg`
 
-ProgressMsg prints an informational progress line on the host stderr.
+ProgressMsg reports command progress on the host stderr. Text is the plain fallback when no structured progress formatter is available.
 
 **`Type`**
 
@@ -696,6 +696,34 @@ CBOR: `type`; type: `string`; required: yes
 **`Text`**
 
 CBOR: `text`; type: `string`; required: yes
+
+**`ID`**
+
+CBOR: `id`; type: `string`; required: no
+
+**`Label`**
+
+CBOR: `label`; type: `string`; required: no
+
+**`State`**
+
+CBOR: `state`; type: `string`; required: no
+
+**`Current`**
+
+CBOR: `current`; type: `*int64`; required: no
+
+**`Total`**
+
+CBOR: `total`; type: `*int64`; required: no
+
+**`Unit`**
+
+CBOR: `unit`; type: `string`; required: no
+
+**`Message`**
+
+CBOR: `message`; type: `string`; required: no
 
 
 ### `SpinnerMsg`
