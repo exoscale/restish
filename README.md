@@ -9,8 +9,9 @@ requests, discover OpenAPI descriptions, generate API-aware commands, manage
 profiles and auth, render structured output, follow pagination links, and run
 plugins.
 
-This is Exoscale's source-only downstream of
-[rest-sh/restish](https://github.com/rest-sh/restish) v2. See the
+Exoscale maintains this source-only fork of
+[Restish v2](https://github.com/rest-sh/restish). It is not an official
+Restish distribution. See the
 [v1 upgrade guide](https://rest.sh/docs/getting-started/upgrade-from-v1/)
 before replacing a v1 installation.
 
@@ -43,22 +44,6 @@ Dragonfly macro            jpeg    /images/jpeg
 Origami under blacklight   webp    /images/webp
 Andy Warhol mural in Miami gif     /images/gif
 ```
-
-## Upstream Sponsors
-
-A big thank you to our sponsor!
-
-<div>
-	<a href="https://serpapi.com/?utm_source=restish">
-		<img src="site/static/img/sponsors/serpapi-banner.png" alt="SerpApi" width="260" align="right">
-	</a>
-	<h3>SerpApi: Web Search API</h3>
-	<p>
-		Access Google Search, Maps, Shopping, and other search engine data with a simple API by SerpApi.
-	</p>
-	<a href="https://serpapi.com/?utm_source=restish">Learn more</a>
-</div>
-<hr/>
 
 ## Install
 
