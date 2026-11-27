@@ -1,54 +1,164 @@
-![Restish Logo](https://user-images.githubusercontent.com/106826/82109918-ec5b2300-96ee-11ea-9af0-8515329d5965.png)
+# Restish (Exoscale downstream)
 
-[![Works With Restish](https://img.shields.io/badge/Works%20With-Restish-ff5f87)](https://rest.sh/) [![User Guide](https://img.shields.io/badge/Docs-Guide-5fafd7)](https://rest.sh/#/guide) [![CI](https://github.com/danielgtaylor/restish/workflows/CI/badge.svg?branch=main)](https://github.com/danielgtaylor/restish/actions?query=workflow%3ACI+branch%3Amain++) [![codecov](https://codecov.io/gh/danielgtaylor/restish/branch/main/graph/badge.svg)](https://codecov.io/gh/danielgtaylor/restish) [![Docs](https://img.shields.io/badge/godoc-reference-5fafd7)](https://pkg.go.dev/github.com/danielgtaylor/restish?tab=subdirectories) [![Go Report Card](https://goreportcard.com/badge/github.com/danielgtaylor/restish)](https://goreportcard.com/report/github.com/danielgtaylor/restish)
+[![CI](https://github.com/exoscale/restish/actions/workflows/ci.yaml/badge.svg)](https://github.com/exoscale/restish/actions/workflows/ci.yaml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/rest-sh/restish/v2.svg)](https://pkg.go.dev/github.com/rest-sh/restish/v2)
+[![License](https://img.shields.io/github/license/rest-sh/restish)](LICENSE.md)
 
-[Restish](https://rest.sh/) is a CLI for interacting with [REST](https://apisyouwonthate.com/blog/rest-and-hypermedia-in-2019)-ish HTTP APIs with some nice features built-in — like always having the latest API resources, fields, and operations available when they go live on the API without needing to install or update anything.
-Check out [how Restish compares to cURL & HTTPie](https://rest.sh/#/comparison).
+Restish is a CLI for working with REST-ish HTTP APIs. It can make generic HTTP
+requests, discover OpenAPI descriptions, generate API-aware commands, manage
+profiles and auth, render structured output, follow pagination links, and run
+plugins.
 
-See the [user guide](https://rest.sh/#/guide) for how to install Restish and get started.
+This is Exoscale's source-only downstream of
+[rest-sh/restish](https://github.com/rest-sh/restish) v2. See the
+[v1 upgrade guide](https://rest.sh/docs/getting-started/upgrade-from-v1/)
+before replacing a v1 installation.
 
-Features include:
+The downstream additions cover explicit raw output, richer security warnings,
+API-backed completion and argument ordering, plugin selection and progress,
+formatter configuration and interactive sessions, host formatter fallback,
+hidden request-body prompts, and opt-in response middleware such as
+`--rsh-anonymize` when a compatible plugin is installed.
 
-- HTTP/2 ([RFC 7540](https://tools.ietf.org/html/rfc7540)) with TLS by _default_ with fallback to HTTP/1.1
-- Generic head/get/post/put/patch/delete verbs like `curl` or [HTTPie](https://httpie.org/)
-- Generated commands for CLI operations, e.g. `restish my-api list-users`
-  - Automatically discovers API descriptions
-    - [RFC 8631](https://tools.ietf.org/html/rfc8631) `service-desc` link relation
-    - [RFC 5988](https://tools.ietf.org/html/rfc5988#section-6.2.2) `describedby` link relation
-  - Supported formats
-    - OpenAPI [3.0](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.3.md) / [3.1](https://spec.openapis.org/oas/v3.1.0.html) and [JSON Schema](https://json-schema.org/)
-  - Automatic configuration of API auth if advertised by the API
-  - Shell command completion for Bash, Fish, Zsh, Powershell
-- Automatic pagination of resource collections via [RFC 5988](https://tools.ietf.org/html/rfc5988) `prev` and `next` hypermedia links
-- API endpoint-based auth built-in with support for profiles:
-  - HTTP Basic
-  - API key via header or query param
-  - OAuth2 client credentials flow (machine-to-machine, [RFC 6749](https://tools.ietf.org/html/rfc6749))
-  - OAuth2 authorization code (with PKCE [RFC 7636](https://tools.ietf.org/html/rfc7636)) flow
-  - On the fly authorization through external tools for custom API signature mechanisms
-- Content negotiation, decoding & unmarshalling built-in:
-  - JSON ([RFC 8259](https://tools.ietf.org/html/rfc8259), <https://www.json.org/>)
-  - YAML (<https://yaml.org/>)
-  - CBOR ([RFC 7049](https://tools.ietf.org/html/rfc7049), <http://cbor.io/>)
-  - MessagePack (<https://msgpack.org/>)
-  - Amazon Ion (<http://amzn.github.io/ion-docs/>)
-  - Gzip ([RFC 1952](https://tools.ietf.org/html/rfc1952)), Deflate ([RFC 1951](https://datatracker.ietf.org/doc/html/rfc1951)), and Brotli ([RFC 7932](https://tools.ietf.org/html/rfc7932)) content encoding
-- Automatic retries with support for [`Retry-After`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After) and `X-Retry-In` headers when APIs are rate-limited.
-- Standardized [hypermedia](https://smartbear.com/learn/api-design/what-is-hypermedia/) parsing into queryable/followable response links:
-  - HTTP Link relation headers ([RFC 5988](https://tools.ietf.org/html/rfc5988#section-6.2.2))
-  - [HAL](http://stateless.co/hal_specification.html)
-  - [Siren](https://github.com/kevinswiber/siren)
-  - [Terrifically Simple JSON](https://github.com/mpnally/Terrifically-Simple-JSON)
-  - [JSON:API](https://jsonapi.org/)
-- Local caching that respects [RFC 7234](https://tools.ietf.org/html/rfc7234) `Cache-Control` and `Expires` headers
-- CLI [shorthand](https://github.com/danielgtaylor/openapi-cli-generator/tree/master/shorthand#cli-shorthand-syntax) for structured data input (e.g. for JSON)
-- [Shorthand query](https://github.com/danielgtaylor/shorthand#querying) response filtering & projection
-- Colorized prettified readable output
-- Fast native zero-dependency binary
+## Try It
 
-Articles:
+Make a direct request with no setup beyond installing the CLI:
 
-- [A CLI for REST APIs](https://dev.to/danielgtaylor/a-cli-for-rest-apis-part-1-104b)
-- [Mapping OpenAPI to the CLI](https://dev.to/danielgtaylor/mapping-openapi-to-the-cli-37pb)
+```bash
+restish api.rest.sh/types
+```
 
-This project started life as a fork of [OpenAPI CLI Generator](https://github.com/danielgtaylor/openapi-cli-generator).
+Then format, filter, and page through real API responses:
+
+```bash
+restish api.rest.sh/images -o table --rsh-columns name,format,self
+restish api.rest.sh/example -f 'body.basics.{name, label, profiles}'
+```
+
+Example table output:
+
+```text
+name                       format  self
+Dragonfly macro            jpeg    /images/jpeg
+Origami under blacklight   webp    /images/webp
+Andy Warhol mural in Miami gif     /images/gif
+```
+
+## Upstream Sponsors
+
+A big thank you to our sponsor!
+
+<div>
+	<a href="https://serpapi.com/?utm_source=restish">
+		<img src="site/static/img/sponsors/serpapi-banner.png" alt="SerpApi" width="260" align="right">
+	</a>
+	<h3>SerpApi: Web Search API</h3>
+	<p>
+		Access Google Search, Maps, Shopping, and other search engine data with a simple API by SerpApi.
+	</p>
+	<a href="https://serpapi.com/?utm_source=restish">Learn more</a>
+</div>
+<hr/>
+
+## Install
+
+Build this fork from source with Go 1.25.3 or newer:
+
+```bash
+git clone https://github.com/exoscale/restish.git
+cd restish
+go build -ldflags "-X github.com/rest-sh/restish/v2/internal/cli.Version=exoscale-$(git rev-parse --short HEAD)" -o restish ./cmd/restish
+./restish --version
+./restish --help
+```
+
+Homebrew, mise's `restish` shorthand, and `go install` from `rest-sh/restish`
+install upstream, not this fork. The Go module path stays unchanged for plugin
+and embedder compatibility.
+
+## Why Restish?
+
+- Use one-off HTTP commands with good defaults for headers, content types,
+  retries, caching, TLS, and output.
+- Connect OpenAPI descriptions to get generated API commands, help, profiles,
+  auth, and shell completion.
+- Filter normalized responses with shorthand or jq, then render JSON, YAML,
+  tables, CSV, NDJSON, lines, gron, images, and raw downloads.
+- Follow pagination links and stream API data without writing boilerplate loops.
+- Extend the CLI with plugins for bulk workflows, CSV, MCP, TLS signing, and
+  custom API behavior.
+
+## Documentation
+
+- [Documentation Home](https://rest.sh/docs/)
+- [Tour of Restish](https://rest.sh/docs/getting-started/tour/)
+- [Install](https://rest.sh/docs/getting-started/install/)
+- [Connect to an API](https://rest.sh/docs/getting-started/connect-to-an-api/)
+- [Authentication](https://rest.sh/docs/guides/authentication/)
+- [Plugins](https://rest.sh/docs/plugins/)
+- [Upgrade From v1](https://rest.sh/docs/getting-started/upgrade-from-v1/)
+
+## Plugins
+
+Bundled plugins live in this repository and can be built alongside the main
+CLI:
+
+```bash
+go build ./cmd/restish-bulk
+go build ./cmd/restish-csv
+go build ./cmd/restish-mcp
+go build ./cmd/restish-pkcs11
+```
+
+Start with [Install and Use Plugins](https://rest.sh/docs/plugins/install-and-use/)
+or [Plugin Quickstart](https://rest.sh/docs/plugins/quickstart/).
+
+For PKCS#11-backed mTLS, install `restish-pkcs11` before switching a v1 profile
+to v2. Scripts that used `--rsh-pkcs11-label` or `--rsh-pkcs11-path` from the
+old Exoscale PKCS#11 branch can use `--rsh-tls-signer pkcs11` with repeatable
+`--rsh-tls-signer-param token_label=...` and `--rsh-tls-signer-param module=...`
+options. See [TLS Signer Plugins](https://rest.sh/docs/plugins/tls-signer-plugins/).
+
+## Development
+
+Build from this repository when developing Restish itself:
+
+```bash
+go build ./cmd/restish
+./restish --help
+./restish api.rest.sh/types
+```
+
+Run the normal development loop with:
+
+```bash
+go test ./...
+```
+
+Build the CLI and bundled plugins with:
+
+```bash
+go build ./cmd/restish
+go build ./cmd/restish-bulk
+go build ./cmd/restish-csv
+go build ./cmd/restish-mcp
+go build ./cmd/restish-pkcs11
+```
+
+Run the full integration suite before releases or larger CLI/plugin changes:
+
+```bash
+go test -tags=integration ./...
+```
+
+Development docs:
+
+- [Contributing](https://rest.sh/docs/contributing/)
+- [Development Setup](https://rest.sh/docs/contributing/development-setup/)
+- [Release Packaging](https://rest.sh/docs/contributing/release-packaging/)
+- [Design Docs](docs/design/README.md)
+- [Docs Source](site/)
+
+## License
+
+Restish is released under the MIT License. See [`LICENSE.md`](LICENSE.md).
